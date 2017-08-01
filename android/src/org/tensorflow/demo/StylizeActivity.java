@@ -54,6 +54,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Vector;
 
+import org.tensorflow.contrib.android.TensorFlowInferenceInterface;
 import org.tensorflow.demo.OverlayView.DrawCallback;
 import org.tensorflow.demo.env.BorderedText;
 import org.tensorflow.demo.env.ImageUtils;
@@ -65,6 +66,14 @@ import org.tensorflow.demo.env.Logger;
  */
 public class StylizeActivity extends CameraActivity implements OnImageAvailableListener {
   private static final Logger LOGGER = new Logger();
+  private TensorFlowInferenceInterface inferenceInterface;
+
+  private static final String MODEL_FILE = "file:///android_asset/stylize_quantized.pb";
+
+  private static final String INPUT_NODE = "input";
+  private static final String STYLE_NODE = "style_num";
+  private static final String OUTPUT_NODE = "transformer/expand/conv3/conv/Sigmoid";
+
 
   private static final int NUM_STYLES = 26;
 
@@ -356,6 +365,9 @@ public class StylizeActivity extends CameraActivity implements OnImageAvailableL
 
   @Override
   public void onPreviewSizeChosen(final Size size, final int rotation) {
+
+    inferenceInterface = new TensorFlowInferenceInterface(getAssets(), MODEL_FILE);
+
     final float textSizePx =
         TypedValue.applyDimension(
             TypedValue.COMPLEX_UNIT_DIP, TEXT_SIZE_DIP, getResources().getDisplayMetrics());
@@ -574,7 +586,12 @@ public class StylizeActivity extends CameraActivity implements OnImageAvailableL
       }
     }
 
-    // TODO: Process the image in TensorFlow here.
+    inferenceInterface.feed(INPUT_NODE, floatValues, 1, bitmap.getWidth(), bitmap.getHeight(),3);
+    inferenceInterface.feed(STYLE_NODE, styleVals, NUM_STYLES);
+
+    inferenceInterface.run(new String[]{OUTPUT_NODE}, isDebug());
+
+    inferenceInterface.fetch(OUTPUT_NODE, floatValues);
 
     for (int i = 0; i < intValues.length; ++i) {
       intValues[i] =
@@ -622,6 +639,10 @@ public class StylizeActivity extends CameraActivity implements OnImageAvailableL
     canvas.drawBitmap(copy, matrix, new Paint());
 
     final Vector<String> lines = new Vector<>();
+
+    final String[] statLines = inferenceInterface.getStatString().split("\n");
+    Collections.addAll(lines, statLines);
+    lines.add("");
 
     lines.add("Frame: " + previewWidth + "x" + previewHeight);
     lines.add("Crop: " + copy.getWidth() + "x" + copy.getHeight());

@@ -40,5 +40,6 @@ android {
         }
     }
     dependencies {
+        compile 'org.tensorflow:tensorflow-android:1.2.0-preview'
     }
 }
